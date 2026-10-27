@@ -47,7 +47,7 @@ python3 scripts/export_data.py \
 └── nginx/conf/kb.omnibbfb.top.conf     # 来自 deploy/ 同名文件
 ```
 
-容器不发布宿主机端口，由现有 Nginx 通过 Docker 网络代理。服务器已有 `omnibbfb.top` 通配符证书，配置复用它。`kb.omnibbfb.top` 的 DNS A 记录指向 **123.56.248.107**；目前服务器没有 IPv6 入口，不添加 AAAA 记录。证书续期沿用现有服务器流程。
+容器不发布宿主机端口，由现有 Nginx 通过 Docker 网络代理。服务器已有 `*.omnibbfb.top` 通配符证书，配置复用 `/etc/letsencrypt/live/omnibbfb.top-0002/` 下的证书。`kb.omnibbfb.top` 的 DNS A 记录指向 **123.56.248.107**；目前服务器没有 IPv6 入口，不添加 AAAA 记录。证书续期沿用现有服务器流程。
 
 首次在本机构建镜像并传到服务器（`sss` 是 shell alias，下面写明等价 SSH 参数；`scp` 用大写 `-P` 设置非默认端口）：
 
