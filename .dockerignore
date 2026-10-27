@@ -1,0 +1,7 @@
+**
+!web/
+!web/**
+web/tests/
+web/**/__pycache__/
+web/**/*.pyc
+web/README.md

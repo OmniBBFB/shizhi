@@ -1,0 +1,18 @@
+services:
+  shizhi:
+    image: ${SHIZHI_IMAGE:-shizhi:local}
+    build: .
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ${SHIZHI_DATA_DIR:-./data}:/data:ro
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:size=16m"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

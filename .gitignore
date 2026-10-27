@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.artifacts/
+data/*
+!data/.gitkeep
+*.tar
+*.tar.gz
+*.htpasswd
