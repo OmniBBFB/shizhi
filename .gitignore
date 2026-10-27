@@ -8,3 +8,6 @@ data/*
 *.tar
 *.tar.gz
 *.htpasswd
+
+.hallmark/shots/
+.hallmark/before/

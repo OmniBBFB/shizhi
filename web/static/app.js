@@ -1,5 +1,5 @@
 // Progressive enhancement: every navigation and reading action works without JS.
-document.querySelectorAll('form:not([data-pdf-page-form])').forEach(form => {
+document.querySelectorAll('form:not([data-pdf-page-form]):not(#upload-form)').forEach(form => {
   form.addEventListener('submit', () => {
     const status = form.querySelector('[role="status"]');
     if (status) status.hidden = false;

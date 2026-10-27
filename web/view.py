@@ -13,9 +13,9 @@ def url(**params):
 
 def layout(title, body):
     return f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="阅读本地视频讲义、总结与字幕">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="阅读讲义、学习笔记与字幕">
 <title>{e(title)} | 拾知</title><link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script></head>
-<body><a class="skip" href="#content">跳到正文</a><header class="mast container"><a class="brand" href="/">拾知<span>把学过的，留给未来的自己。</span></a><nav aria-label="主导航"><a href="/">全部视频</a></nav></header>
+<body><a class="skip" href="#content">跳到正文</a><header class="mast container"><a class="brand" href="/">拾知<span>学过的，留给未来。</span></a><nav aria-label="主导航"><a href="/">全部资料</a><a href="/upload">上传材料</a></nav></header>
 <main id="content" class="container">{body}</main><footer class="container"><span>拾知</span><p>回到讲义，接着思考。</p><a href="/">返回书架</a></footer></body></html>'''
 
 
@@ -27,11 +27,11 @@ def shelf(videos, query='', kind='all'):
     for v in filtered:
         cover = f'<img src="{e(v["cover"])}" alt="" width="240" height="135" loading="lazy">' if v['cover'] else '<div class="cover-empty">暂无封面</div>'
         state = f'{v["pdf_count"]} 份 PDF' if v['pdf_count'] else '暂无 PDF'
-        rows += f'''<li><a class="video-row" href="{e(url(video=v['id']))}">{cover}<div class="row-title"><h2>{e(v['title'])}</h2><p>{e(v['author'])}</p><small>{e(v['id'])}</small></div><div class="row-state"><span class="tag">{state}</span><p>{str(v['part_count'])+' 个分 P' if v['part_count'] else '单个视频'}</p><span class="read-label">阅读材料</span></div></a></li>'''
-    empty = '<section class="empty"><h2>还没有匹配的视频</h2><p>试试视频标题、BV 号，或切换材料类型。</p><a class="button" href="/">查看全部视频</a></section>'
-    return layout('全部视频', f'''<section class="intro"><h1>让看过的，成为你的。</h1><p>在讲义、总结和原始字幕之间，重新找到值得记住的内容。</p></section>
-<form class="filters" method="get"><div class="search-field"><label for="q">搜索书架</label><input id="q" name="q" type="search" value="{e(query)}" placeholder="标题、BV 号或分 P 名称"></div><div><label for="kind">材料类型</label><select name="kind" id="kind">{options}</select></div><button class="primary" type="submit">查找视频</button><p class="loading" role="status" hidden>正在读取书架…</p></form>
-<div class="list-heading"><h2>全部视频</h2><p role="status">找到 {len(filtered)} 个视频</p></div><ul class="shelf">{rows}</ul>{empty if not filtered else ''}''')
+        rows += f'''<li><a class="video-row" href="{e(url(video=v['id']))}">{cover}<div class="row-title"><h2>{e(v['title'])}</h2><p>{e(v['author'])}</p><small>{e(v['id'])}</small></div><div class="row-state"><span class="tag">{state}</span><p>{str(v['part_count'])+' 个分 P' if v['part_count'] else '资料集'}</p><span class="read-label">阅读材料</span></div></a></li>'''
+    empty = '<section class="empty"><h2>还没有匹配的资料</h2><p>试试视频标题、BV 号，或切换材料类型。</p><a class="button" href="/">查看全部资料</a></section>'
+    return layout('全部资料', f'''<section class="intro"><h1>让看过的，成为你的。</h1><p>在讲义、总结和原始字幕之间，重新找到值得记住的内容。</p></section>
+<form class="filters" method="get"><div class="search-field"><label for="q">搜索书架</label><input id="q" name="q" type="search" value="{e(query)}" placeholder="标题、BV 号或分 P 名称"></div><div><label for="kind">材料类型</label><select name="kind" id="kind">{options}</select></div><button class="primary" type="submit">查找资料</button><p class="loading" role="status" hidden>正在读取书架…</p></form>
+<div class="list-heading"><h2>全部资料</h2><p role="status">找到 {len(filtered)} 个资料集</p></div><ul class="shelf">{rows}</ul>{empty if not filtered else ''}''')
 
 
 def plain_document(text):
@@ -88,7 +88,9 @@ def reader(library, video, unit, tab, doc=None):
                 row = json.loads(line)
                 start = max(0, int(float(row.get('start', 0))))
                 stamp = f'{start//3600:02d}:{start//60%60:02d}:{start%60:02d}'
-                lines.append(f'<p><a href="https://www.bilibili.com/video/{e(vid)}/?{e(urlencode({"p": int(uid[1:]) if uid.startswith("P") else 1,"t":start}))}">{stamp}</a><span>{e(row.get("text", ""))}</span></p>')
+                timestamp = (f'<a href="https://www.bilibili.com/video/{e(vid)}/?{e(urlencode({"p": int(uid[1:]) if uid.startswith("P") else 1,"t":start}))}">{stamp}</a>'
+                             if vid.startswith('BV') else f'<span>{stamp}</span>')
+                lines.append(f'<p>{timestamp}<span>{e(row.get("text", ""))}</span></p>')
             except (ValueError, TypeError, AttributeError, OverflowError):
                 lines.append(f'<p>{e(line)}</p>')
         content = '<p class="notice">原始转写可能包含识别错误。点击时间可回到视频核对。</p><article class="transcript">'+''.join(lines)+'</article>'
@@ -98,8 +100,28 @@ def reader(library, video, unit, tab, doc=None):
         content = '<section class="empty"><h2>这个讲次暂无此类材料</h2><p>可以切换阅读标签，查看已经生成的内容。</p><a class="button" href="'+e(url(**base,tab='files'))+'">查看全部材料</a></section>'
     image = f'<img class="reader-cover" src="{e(video["cover"])}" alt="视频原始封面" width="240" height="135">' if video['cover'] else ''
     warning = f'<p class="notice">{e(video["warning"])}</p>' if video['warning'] else ''
-    return layout(video['title'], f'''<a class="back" href="/">返回全部视频</a><section class="reader-head">{image}<div><h1>{e(video['title'])}</h1><p>{e(video['author'])}</p><a href="https://www.bilibili.com/video/{e(vid)}/">观看原视频</a></div></section>{warning}{selector}<div class="reading-title"><h2>{e(unit['title'])}</h2></div><nav class="tabs" aria-label="阅读方式">{tabs}</nav><section class="reading">{content}</section>''')
+    source_link = f'<a href="https://www.bilibili.com/video/{e(vid)}/">观看原视频</a>' if vid.startswith('BV') else ''
+    return layout(video['title'], f'''<a class="back" href="/">返回全部资料</a><section class="reader-head">{image}<div><h1>{e(video['title'])}</h1><p>{e(video['author'])}</p>{source_link}</div></section>{warning}{selector}<div class="reading-title"><h2>{e(unit['title'])}</h2></div><nav class="tabs" aria-label="阅读方式">{tabs}</nav><section class="reading">{content}</section>''')
 
 
 def error(message, status):
     return layout(str(status), f'<section class="empty"><h1>{e(message)}</h1><p>请返回书架重新选择，或刷新后再试。</p><a class="button" href="/">返回书架</a></section>')
+
+
+def upload(collections):
+    options = ''.join(f'<option value="{e(c["id"])}">{e(c["title"])}</option>' for c in collections)
+    return layout('上传材料', f'''<section class="intro"><h1>把新材料放进来。</h1><p>选好资料集，上传讲义与笔记，下次从这里接着读。</p></section>
+<form id="upload-form" class="upload-workbench" method="post" action="/api/uploads">
+<div class="upload-fields"><h2>存放位置</h2>
+<div class="upload-field"><label for="collection">资料集</label><select id="collection" name="collection"><option value="">新建资料集</option>{options}</select></div>
+<div class="upload-field" id="new-collection"><label for="collection-title">资料集名称（必填）</label><input type="text" name="title" id="collection-title" maxlength="200" required aria-required="true" placeholder="机器学习笔记"></div>
+<div class="upload-field"><label for="upload-part">讲次（选填）</label><input type="text" name="part" id="upload-part" pattern="P[0-9]+" placeholder="P01" aria-describedby="part-hint"><p id="part-hint" class="field-help">留空放在资料集根目录。</p></div>
+<div class="upload-field"><label for="upload-token">上传口令（必填）</label><input name="token" id="upload-token" type="password" required aria-required="true" autocomplete="current-password" aria-describedby="token-hint upload-error"><p id="token-hint" class="field-help">仅用于本次上传，阅读材料无需口令。</p></div></div>
+<div class="upload-materials"><h2>选择材料</h2>
+<label for="upload-files">文件（可多选，必填）</label><input name="files" id="upload-files" type="file" multiple required aria-required="true" accept=".pdf,.md,.txt,.srt,.vtt,.jsonl,.jpg,.jpeg,.png,.webp,.tex,.zip" aria-describedby="file-hint upload-error">
+<p id="file-hint" class="field-help">PDF、文本、字幕、图片、TeX 或 ZIP，单个不超过 128 MB。ZIP 按材料保存，不自动解压。</p>
+<div class="upload-queue"><p id="queue-empty">还没选择文件。选好后，材料会列在这里。</p><ul id="file-queue" aria-label="待上传材料"></ul></div>
+<div class="upload-actions"><button class="primary" id="upload-submit" type="submit">上传材料</button><p id="upload-status" role="status" aria-live="polite">上传不会覆盖同名文件。</p></div>
+<p id="upload-error" role="alert" class="upload-error"></p><a id="upload-result" class="button" hidden>打开资料集</a>
+<noscript><p>此上传界面需要 JavaScript。也可以通过 SCP 将文件放入服务器材料目录。</p></noscript></div></form>
+<script src="/static/upload.js" defer></script>''')

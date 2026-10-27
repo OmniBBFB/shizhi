@@ -1,0 +1,21 @@
+{
+  "scanned": "2026-10-27",
+  "scope": "app",
+  "findings": {
+    "fonts": "web/static/style.css:7 uses local system font",
+    "palette": "web/static/tokens.css:2 retains Ink tokens",
+    "framework": "Python MVC server-rendered HTML",
+    "existing": "original BV shelf and PDF.js reader"
+  },
+  "preserve": [
+    "palette",
+    "typography",
+    "shelf and reader layout"
+  ],
+  "introduce": [
+    "upload workbench",
+    "password field",
+    "multi-file queue",
+    "new material collections"
+  ]
+}

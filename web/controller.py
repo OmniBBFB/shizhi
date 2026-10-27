@@ -1,4 +1,4 @@
-"""Controller: read-only HTTP routes, selection and bounded file delivery."""
+"""Controller: public reading and separately authenticated material uploads."""
 import argparse
 import json
 import mimetypes
@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from .model import Library
+from .uploads import Uploads, UploadError
 from . import view
 
 STATIC = Path(__file__).parent / 'static'
@@ -22,7 +23,7 @@ PAGE_POLICY = ("default-src 'self'; style-src 'self' 'unsafe-inline'; "
 
 def static_file(name):
     """Expose app assets and only the vendored PDF.js runtime resources."""
-    if name in {'style.css', 'tokens.css', 'base.css', 'app.js', 'pdf-reader.mjs'}:
+    if name in {'style.css', 'tokens.css', 'base.css', 'app.js', 'pdf-reader.mjs', 'upload.js'}:
         return STATIC / name
     path = Path(name)
     if '..' in path.parts or not name.startswith('vendor/pdfjs/'):
@@ -41,8 +42,9 @@ def static_file(name):
 
 
 class Controller(BaseHTTPRequestHandler):
-    def __init__(self, *args, library, **kwargs):
+    def __init__(self, *args, library, uploads=None, **kwargs):
         self.library = library
+        self.uploads = uploads or Uploads(library)
         super().__init__(*args, **kwargs)
 
     def do_HEAD(self):
@@ -110,6 +112,49 @@ class Controller(BaseHTTPRequestHandler):
         self.send_header('Content-Length', '0')
         self.end_headers()
 
+    def do_POST(self):
+        self.close_connection = True
+        try:
+            parsed = urlsplit(self.path)
+            if parsed.path not in {'/api/collections', '/api/uploads'}:
+                raise UploadError(404, '接口不存在。')
+            self.uploads.authorize(self.headers.get('Authorization', ''))
+            origin = self.headers.get('Origin')
+            if origin and urlsplit(origin).netloc != self.headers.get('Host'):
+                raise UploadError(403, '请从本站上传页面提交文件。')
+            if self.headers.get('Transfer-Encoding'):
+                raise UploadError(400, '不支持分块编码，请使用带文件长度的上传请求。')
+            try:
+                length = int(self.headers.get('Content-Length', ''))
+            except ValueError:
+                raise UploadError(411, '上传请求需要 Content-Length。')
+            if not 0 < length <= self.uploads.max_bytes:
+                raise UploadError(413, '单个文件需大于 0 字节且不超过 128 MB。')
+            self.connection.settimeout(60)
+            if parsed.path == '/api/collections':
+                if length > 4096:
+                    raise UploadError(413, '资料集信息过长。')
+                try:
+                    data = json.loads(self.rfile.read(length))
+                except (ValueError, UnicodeError):
+                    raise UploadError(400, '资料集信息不是有效的 JSON。')
+                if not isinstance(data, dict):
+                    raise UploadError(400, '资料集信息格式不正确。')
+                result = self.uploads.create_collection(data.get('title'))
+            else:
+                params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+                result = self.uploads.save(params.get('collection', ''), params.get('part', ''),
+                                           params.get('filename', ''), self.rfile, length)
+            self.send(201, json.dumps(result, ensure_ascii=False), 'application/json; charset=utf-8')
+        except UploadError as error:
+            self.send(error.status, json.dumps({'error': str(error)}, ensure_ascii=False), 'application/json; charset=utf-8')
+        except TimeoutError:
+            self.send(408, '{"error":"上传超时，请检查网络后重试。"}', 'application/json; charset=utf-8')
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except OSError:
+            self.send(500, '{"error":"材料无法写入，请检查挂载目录权限和剩余空间。"}', 'application/json; charset=utf-8')
+
     def do_GET(self):
         try:
             parsed = urlsplit(self.path)
@@ -122,6 +167,8 @@ class Controller(BaseHTTPRequestHandler):
                 return self.file(static_file(name), static=True)
             if path.startswith('/files/'):
                 return self.file(self.library.safe_file(path.removeprefix('/files/')))
+            if path == '/upload':
+                return self.send(200, view.upload(self.library.catalog()))
             if path not in {'/', '/api/videos'}:
                 raise FileNotFoundError(path)
             videos = self.library.catalog()
@@ -141,7 +188,8 @@ class Controller(BaseHTTPRequestHandler):
                 raise FileNotFoundError(path)
             if not unit:
                 unit = {'id': 'main', 'title': '视频讲义', 'pdfs': [], 'documents': [], 'downloads': [], 'transcript': None}
-            tab = params.get('tab', 'pdf' if unit['pdfs'] else 'text')
+            default_tab = 'pdf' if unit['pdfs'] else ('text' if unit['documents'] else 'files')
+            tab = params.get('tab', default_tab)
             if tab not in {'pdf', 'text', 'transcript', 'files'}:
                 return self.send(400, view.error('无法识别这个阅读标签', 400))
             return self.send(200, view.reader(self.library, video, unit, tab, params.get('doc')))
@@ -161,7 +209,9 @@ def main():
     args = parser.parse_args()
     if not args.root.is_dir():
         parser.error(f'材料目录不存在：{args.root}')
-    server = ThreadingHTTPServer((args.host, args.port), partial(Controller, library=Library(args.root)))
+    library = Library(args.root)
+    uploads = Uploads(library, os.environ.get('SHIZHI_UPLOAD_TOKEN', ''))
+    server = ThreadingHTTPServer((args.host, args.port), partial(Controller, library=library, uploads=uploads))
     print(f'拾知 http://{args.host}:{server.server_port}', flush=True)
     try:
         server.serve_forever()

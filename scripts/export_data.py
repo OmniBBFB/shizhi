@@ -6,12 +6,12 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from web.model import BV, PART, PUBLIC
+from web.model import COLLECTION, PART, PUBLIC
 
 
 def reading_files(source):
     for video in sorted(source.iterdir()):
-        if video.is_symlink() or not video.is_dir() or not BV.fullmatch(video.name):
+        if video.is_symlink() or not video.is_dir() or not COLLECTION.fullmatch(video.name):
             continue
         folders = [video] + [p for p in sorted(video.iterdir())
                              if PART.fullmatch(p.name) and not p.is_symlink() and p.is_dir()]

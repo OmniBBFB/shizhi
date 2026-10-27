@@ -1,0 +1,23 @@
+{
+  "scope": "app",
+  "sloplint": {
+    "fail": 0,
+    "warn": 0,
+    "waived": 3,
+    "reason": "retained Ink neutral palette"
+  },
+  "finish_review": {
+    "mode": "subagent",
+    "first_word": "fix",
+    "findings": [
+      {
+        "gate": "Finish F26",
+        "finding": "Mobile tagline left a short final fragment",
+        "fix": "Shortened tagline to 学过的，留给未来。",
+        "status": "resolved: confirmed in final 375px render"
+      }
+    ]
+  },
+  "functional_browser": "wrong-token recovery, real upload, immediate public reading, no token persistence, 320–1920px layout passed",
+  "final_render": "0 FAIL, 0 WARN, 3 original Ink palette waivers"
+}

@@ -1,10 +1,11 @@
-"""Model: the BV directories are the only content store; nothing is persisted."""
+"""Model: mounted collection directories are the only content store."""
 import json
 import re
 from pathlib import Path
 from urllib.parse import quote
 
 BV = re.compile(r'BV[0-9A-Za-z]{10}')
+COLLECTION = re.compile(r'(?:BV[0-9A-Za-z]{10}|kb-[A-Za-z0-9][A-Za-z0-9_-]{0,63})')
 PART = re.compile(r'P\d+')
 PUBLIC = {'.pdf', '.jpg', '.jpeg', '.png', '.webp', '.md', '.txt', '.tex', '.zip', '.srt', '.vtt', '.jsonl'}
 
@@ -15,7 +16,7 @@ class Library:
 
     def safe_file(self, relative):
         path = Path(relative)
-        if path.is_absolute() or not path.parts or not BV.fullmatch(path.parts[0]):
+        if path.is_absolute() or not path.parts or not COLLECTION.fullmatch(path.parts[0]):
             raise FileNotFoundError(relative)
         target = self.root / path
         if any(p.is_symlink() for p in [target, *target.parents] if p != self.root and self.root in p.parents):
@@ -52,19 +53,20 @@ class Library:
         def group(extension):
             return [{'name': p.name, 'url': self.link(p)} for p in files if p.suffix.lower() in extension]
         return {'id': folder.name, 'title': title, 'pdfs': group({'.pdf'}), 'documents': group({'.md', '.txt'}),
-                'downloads': group({'.pdf', '.zip', '.tex', '.md', '.srt', '.vtt', '.jsonl'}),
+                'downloads': [{'name': p.name, 'url': self.link(p)} for p in files
+                              if p.stem != 'cover' and p.suffix.lower() in PUBLIC],
                 'transcript': next((self.link(p) for p in files if p.name == 'transcript.jsonl'), None)}
 
     def catalog(self):
         videos = []
         for folder in sorted(self.root.iterdir()):
-            if not BV.fullmatch(folder.name) or folder.is_symlink() or not folder.is_dir():
+            if not COLLECTION.fullmatch(folder.name) or folder.is_symlink() or not folder.is_dir():
                 continue
             data, warning = self.metadata(folder)
             pages = {f"P{int(p['page']):02d}": p for p in data.get('pages', []) if isinstance(p, dict) and str(p.get('page', '')).isdigit()}
             units = []
-            base = self.unit(folder, '视频讲义')
-            if base['pdfs'] or base['documents'] or base['transcript']:
+            base = self.unit(folder, '视频讲义' if BV.fullmatch(folder.name) else '资料集')
+            if base['downloads']:
                 base['id'] = 'main'
                 units.append(base)
             for part in sorted(folder.iterdir()):
@@ -83,7 +85,7 @@ class Library:
 
     def document(self, relative):
         path = self.safe_file(relative)
-        if path.suffix not in {'.md', '.txt', '.jsonl'}:
+        if path.suffix.lower() not in {'.md', '.txt', '.jsonl'}:
             raise FileNotFoundError(relative)
         if path.stat().st_size > 8_000_000:
             return '文件较大，请从材料列表下载阅读。'

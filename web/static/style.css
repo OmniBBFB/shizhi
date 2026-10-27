@@ -1,4 +1,4 @@
-/* Hallmark · shape: app screen · genre: editorial · theme: Ink (deal 1/3, seed mvc-0cc2·9770f926·2026-10-26·r0) · nav: search-led top bar · signature: BV lecture shelf and reader · states: loading, empty, error, full · ink: paper · axes: light/grotesk-sans/chromatic-teal · posture: restrained · v2.0.0 */
+/* Hallmark · shape: app screen · genre: editorial · theme: Ink (deal 1/3, seed mvc-0cc2·9770f926·2026-10-26·r0) · nav: search-led top bar · signature: mounted knowledge shelf, reader and upload queue · states: loading, empty, error, success, full · ink: paper · axes: light/grotesk-sans/chromatic-teal · posture: restrained · v2.0.0 */
 /* Hallmark · pre-emit critique: restrained paper, strong reading hierarchy · weakest: dense file names, wrapped safely in reading region */
 /* Hallmark · waive 22 · Ink theme specifies neutral printed paper · The reader keeps Ink black and grey neutral for the editorial shelf. */
 @import url('./tokens.css');
@@ -167,3 +167,35 @@ footer a { min-height: 44px; align-content: center; white-space: nowrap; }
  .pdf-toolbar button:disabled[data-pdf-loading-disabled]:hover { background: var(--color-paper-3); }
  .pdf-toolbar :is(input, select):disabled[data-pdf-loading-disabled]:hover { background: var(--color-paper-2); }
 }
+.mast nav { display: flex; gap: var(--space-md); flex-shrink: 0; }
+.brand { min-width: 0; }
+.upload-workbench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--space-xl); align-items: start; border-top: 1px solid var(--color-ink); padding-top: var(--space-lg); }
+.upload-workbench h2 { font-size: var(--text-section); margin: 0 0 var(--space-lg); }
+.upload-field { margin-bottom: var(--space-lg); }
+.upload-workbench select { width: 100%; }
+.field-help { min-height: 1lh; margin: var(--space-xs) 0 0; font-size: var(--text-sm); color: var(--color-muted); overflow-wrap: anywhere; }
+.upload-materials { padding: var(--space-lg); background: var(--color-paper-2); border-radius: 12px; min-width: 0; }
+.upload-materials input[type='file'] { max-width: 100%; padding: var(--space-sm); }
+.upload-queue { min-height: 136px; margin-block: var(--space-lg); border-block: 1px solid var(--color-rule); }
+.upload-queue > p { color: var(--color-muted); font-size: var(--text-sm); padding-block: var(--space-md); }
+#file-queue { margin: 0; padding: 0; list-style: none; }
+#file-queue li { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); padding-block: var(--space-sm); border-bottom: 1px solid var(--color-rule); font-size: var(--text-sm); }
+#file-queue li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.file-state { flex-shrink: 0; color: var(--color-muted); }
+.file-state[data-state='success'] { color: var(--color-success); }
+.file-state[data-state='error'], .upload-error { color: var(--color-error); }
+.upload-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+#upload-status { min-height: 1lh; margin: 0; color: var(--color-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.upload-error { min-height: 1lh; margin-block: var(--space-md); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.upload-workbench [aria-invalid='true'] { border-color: var(--color-error); }
+.upload-workbench [hidden] { display: none; }
+@media (max-width: 720px) {
+ .upload-workbench { grid-template-columns: minmax(0, 1fr); gap: var(--space-md); }
+ .upload-materials { padding: var(--space-md); }
+ .mast { gap: var(--space-sm); }
+ .mast nav { gap: var(--space-sm); }
+ .brand span { max-width: 150px; }
+}
+
+.reader-head > div:only-child { grid-column: 1 / -1; }
+@media (max-width: 720px) { .upload-workbench input, .upload-workbench select { font-size: var(--text-md); } }

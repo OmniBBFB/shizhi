@@ -75,7 +75,7 @@ class RoutesTests(LibraryTests):
 
     def test_routes_empty_search_errors_and_api(self):
         self.assertEqual(self.request('/')['status'], 200)
-        self.assertIn('还没有匹配的视频', self.request('/?q=no-such-title')['body'].decode())
+        self.assertIn('还没有匹配的资料', self.request('/?q=no-such-title')['body'].decode())
         self.assertEqual(self.request('/?video=BVxxxxxxxxxx')['status'], 404)
         self.assertEqual(self.request('/?video=BV144nc6KEA4&tab=invalid')['status'], 400)
         self.assertEqual(self.request('/static/../../model.py')['status'], 404)

@@ -5,7 +5,9 @@ services:
     ports:
       - "127.0.0.1:8765:8765"
     volumes:
-      - ${SHIZHI_DATA_DIR:-./data}:/data:ro
+      - ${SHIZHI_DATA_DIR:-./data}:/data
+    environment:
+      SHIZHI_UPLOAD_TOKEN: ${SHIZHI_UPLOAD_TOKEN:-}
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]

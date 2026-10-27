@@ -1,0 +1,28 @@
+[
+  {
+    "scope": "app",
+    "shape": "app screen",
+    "theme": "ink",
+    "axes": "light/grotesk-sans/chromatic-teal",
+    "hero": "none (app screen)",
+    "nav": "existing top bar plus upload link",
+    "footer": "reading colophon",
+    "imagery": "real material covers",
+    "photos": [],
+    "entry": "web/controller.py",
+    "fingerprint": "ruled-material-list/pdfjs-reader/two-column-upload-workbench",
+    "sections": [
+      "shelf",
+      "reader",
+      "upload destination",
+      "upload queue"
+    ],
+    "signature": "files uploaded to the same mounted library that SCP updates",
+    "waived": [
+      "22: neutral Ink palette retained from existing design"
+    ],
+    "prompt": "抽取拾知知识库，挂载材料目录，阅读免登录，网页上传需要口令",
+    "date": "2026-10-27",
+    "mode": "extend-existing-system"
+  }
+]
