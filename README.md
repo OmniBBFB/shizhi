@@ -104,6 +104,12 @@ scp -o IdentitiesOnly=yes -i ~/.ssh/ecs_123_56_248_107_ed25519 \
 
 这两种方式写入同一宿主机目录；更新程序、重建镜像或重建容器不会删除材料。不要在有新上传后用旧快照覆盖整个目录；备份请同时保存材料目录和口令配置。
 
+## 页面与 PDF 加载性能
+
+目录列表每次请求仍实时扫描文件；体积较大的 `metadata.json` 只在文件标识、大小或纳秒修改时间发生变化时重新解析，并且仅在进程内保留标题、作者和分 P 名称。服务启动时预热这些显示字段，没有持久索引，SCP 或网页上传的新材料仍立即可见。
+
+静态资源和阅读材料提供 ETag、Last-Modified 与重新验证缓存，未变更时返回 304，无需重传文件；变更后会获取新内容。HTML/API 不缓存。服务器 Nginx 对 JavaScript、CSS、JSON 等开启 gzip；PDF 保持原始字节和 Range 读取，避免影响分段加载。
+
 ## CI 与镜像发布
 
 `.github/workflows/ci.yml` 在 push / PR 时执行 Python 3.10、3.13 测试、JavaScript 语法检查、镜像构建和容器 HTTP 冒烟测试。推送 `v*` 标签或手动运行 workflow 时，用 GitHub 内置的 `GITHUB_TOKEN` 发布到 `ghcr.io/<owner>/<repo>`，提供标签/提交哈希镜像，不需要服务器 SSH 密钥。

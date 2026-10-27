@@ -1,6 +1,7 @@
 """Model: mounted collection directories are the only content store."""
 import json
 import re
+from threading import Lock
 from pathlib import Path
 from urllib.parse import quote
 
@@ -13,6 +14,8 @@ PUBLIC = {'.pdf', '.jpg', '.jpeg', '.png', '.webp', '.md', '.txt', '.tex', '.zip
 class Library:
     def __init__(self, root):
         self.root = Path(root).resolve()
+        self._metadata_cache = {}
+        self._metadata_lock = Lock()
 
     def safe_file(self, relative):
         path = Path(relative)
@@ -32,21 +35,35 @@ class Library:
     def link(self, path):
         return '/files/' + quote(path.relative_to(self.root).as_posix(), safe='/')
 
-    @staticmethod
-    def metadata(folder):
-        try:
-            path = folder / 'metadata.json'
-            if path.is_symlink():
-                return {}, '元数据为符号链接，未读取'
-            data = json.loads(path.read_text(encoding='utf-8'))
-            data = data.get('data', data)
-            if not isinstance(data, dict):
-                raise ValueError('metadata must be an object')
-            data['pages'] = data.get('pages') if isinstance(data.get('pages'), list) else []
-            data['owner'] = data.get('owner') if isinstance(data.get('owner'), dict) else {}
-            return data, ''
-        except (OSError, ValueError, AttributeError):
-            return {}, '元数据缺失或无法读取，使用目录名称'
+    def metadata(self, folder):
+        # Download metadata can contain megabytes unrelated to the reader.
+        # Keep only display fields in memory, and still check the file on every
+        # request so SCP replacements and edits are visible without a TTL.
+        path = folder / 'metadata.json'
+        with self._metadata_lock:
+            try:
+                if path.is_symlink():
+                    self._metadata_cache.pop(path, None)
+                    return {}, '元数据为符号链接，未读取'
+                stat = path.stat()
+                version = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+                cached = self._metadata_cache.get(path)
+                if cached and cached[0] == version:
+                    return cached[1], ''
+                data = json.loads(path.read_text(encoding='utf-8'))
+                data = data.get('data', data)
+                if not isinstance(data, dict):
+                    raise ValueError('metadata must be an object')
+                pages = data.get('pages') if isinstance(data.get('pages'), list) else []
+                owner = data.get('owner') if isinstance(data.get('owner'), dict) else {}
+                display = {'title': data.get('title'), 'owner': {'name': owner.get('name')},
+                           'pages': [{'page': p.get('page'), 'part': p.get('part')}
+                                     for p in pages if isinstance(p, dict)]}
+                self._metadata_cache[path] = version, display
+                return display, ''
+            except (OSError, ValueError, AttributeError):
+                self._metadata_cache.pop(path, None)
+                return {}, '元数据缺失或无法读取，使用目录名称'
 
     def unit(self, folder, title):
         files = self.files(folder)

@@ -5,6 +5,7 @@ import mimetypes
 import os
 import re
 from functools import partial
+from email.utils import formatdate, parsedate_to_datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -57,14 +58,42 @@ class Controller(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Security-Policy', PAGE_POLICY)
+        self.send_header('Cache-Control', 'no-store')
         self.end_headers()
         if self.command != 'HEAD':
             self.wfile.write(body)
 
     def file(self, path, *, static=False):
-        size = path.stat().st_size
+        stat = path.stat()
+        size = stat.st_size
+        etag = f'"{stat.st_mtime_ns:x}-{stat.st_ctime_ns:x}-{size:x}-{stat.st_ino:x}"'
+        modified = formatdate(stat.st_mtime, usegmt=True)
+        cache = 'public, max-age=0, must-revalidate'
+        condition = self.headers.get('If-None-Match')
+        unchanged = (any(value.strip().removeprefix('W/') in {etag, '*'}
+                         for value in condition.split(',')) if condition else False)
+        if not condition and self.headers.get('If-Modified-Since'):
+            try:
+                unchanged = int(stat.st_mtime) <= parsedate_to_datetime(self.headers['If-Modified-Since']).timestamp()
+            except (TypeError, ValueError, OverflowError):
+                pass
+        if unchanged:
+            self.send_response(304)
+            self.send_header('ETag', etag)
+            self.send_header('Last-Modified', modified)
+            self.send_header('Cache-Control', cache)
+            self.end_headers()
+            return
         start, end, status = 0, size - 1, 200
         request_range = self.headers.get('Range')
+        if request_range and self.headers.get('If-Range'):
+            validator = self.headers['If-Range']
+            if validator != etag:
+                try:
+                    if validator.startswith(('"', 'W/')) or int(stat.st_mtime) > parsedate_to_datetime(validator).timestamp():
+                        request_range = None
+                except (TypeError, ValueError, OverflowError):
+                    request_range = None
         if request_range:
             match = re.fullmatch(r'bytes=(\d*)-(\d*)', request_range)
             if not match or not any(match.groups()):
@@ -92,6 +121,9 @@ class Controller(BaseHTTPRequestHandler):
             self.send_header('Content-Security-Policy', PAGE_POLICY if static else "default-src 'none'; sandbox")
             self.send_header('Content-Length', str(max(0, end - start + 1)))
             self.send_header('Accept-Ranges', 'bytes')
+            self.send_header('ETag', etag)
+            self.send_header('Last-Modified', modified)
+            self.send_header('Cache-Control', cache)
             if status == 206:
                 self.send_header('Content-Range', f'bytes {start}-{end}/{size}')
             self.end_headers()
@@ -210,6 +242,7 @@ def main():
     if not args.root.is_dir():
         parser.error(f'材料目录不存在：{args.root}')
     library = Library(args.root)
+    library.catalog()  # Warm display metadata before accepting page requests.
     uploads = Uploads(library, os.environ.get('SHIZHI_UPLOAD_TOKEN', ''))
     server = ThreadingHTTPServer((args.host, args.port), partial(Controller, library=library, uploads=uploads))
     print(f'拾知 http://{args.host}:{server.server_port}', flush=True)
