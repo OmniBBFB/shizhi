@@ -1,0 +1,33 @@
+{
+  "name": "拾知",
+  "url": "https://kb.omnibbfb.top",
+  "upload_url": "https://kb.omnibbfb.top/upload",
+  "image": "shizhi:20261027",
+  "image_id": "sha256:1f613fca96df414b78e6cf9a6431958e239974df4a24bafc10d3c41ba245445a",
+  "repository": "/home/csc/app/shizhi",
+  "data_directory": "/root/docker/main/shizhi/data",
+  "server_compose": "/root/docker/main/compose.shizhi.yaml",
+  "server_nginx": "/root/docker/main/nginx/conf/kb.omnibbfb.top.conf",
+  "server_secret_file": "/root/docker/main/shizhi/.env",
+  "local_secret_file": "/home/csc/app/shizhi/.env",
+  "library": {
+    "collections": 10,
+    "reading_units": 44,
+    "pdfs": 45
+  },
+  "verification": {
+    "unittests": 22,
+    "browser_upload": "passed",
+    "browser_pdf": "passed",
+    "hallmark": "0 FAIL, 0 WARN, 3 existing Ink palette waivers; finish review issue resolved",
+    "server_https": "passed without ignoring certificate validation",
+    "server_upload": "passed; temporary test collection cleaned",
+    "source_catalog": "matches public HTTPS API exactly",
+    "container_health": "healthy",
+    "github_ci": "workflow added; not run on GitHub yet"
+  },
+  "remaining_user_actions": [
+    "DNS A: kb.omnibbfb.top -> 123.56.248.107",
+    "Create GitHub repository and push main; no remote configured"
+  ]
+}
