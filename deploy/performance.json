@@ -1,0 +1,244 @@
+{
+  "measured_before": "2026-10-27",
+  "measured_after": "2026-10-28",
+  "target": "https://kb.omnibbfb.top",
+  "causes": [
+    "Every navigation reparsed 44 metadata files totaling 40,229,184 bytes; profile attributed 0.92s to metadata",
+    "PDF.js assets had no compression or browser revalidation and were retransmitted on repeat visits"
+  ],
+  "fixes": [
+    "File-stat-keyed compact in-memory display metadata; file lists still scanned on every request",
+    "Startup metadata warmup",
+    "ETag and Last-Modified with conditional 304 responses and If-Range support",
+    "Nginx gzip for text/script resources; PDF Range remains uncompressed"
+  ],
+  "http_before": [
+    {
+      "name": "shelf",
+      "run": 1,
+      "status": 200,
+      "dns": 1.2e-05,
+      "connect": 0.005553,
+      "tls": 0.014023,
+      "ttfb": 1.979709,
+      "total": 1.980658,
+      "bytes": 5863,
+      "speed": 2960,
+      "headers": {
+        "content-length": "5863"
+      },
+      "pass": false
+    },
+    {
+      "name": "shelf",
+      "run": 2,
+      "status": 200,
+      "dns": 8e-06,
+      "connect": 0.00509,
+      "tls": 0.014259,
+      "ttfb": 1.480908,
+      "total": 1.486028,
+      "bytes": 5863,
+      "speed": 3945,
+      "headers": {
+        "content-length": "5863"
+      },
+      "pass": false
+    },
+    {
+      "name": "reader",
+      "run": 1,
+      "status": 200,
+      "dns": 9e-06,
+      "connect": 0.00524,
+      "tls": 0.02942,
+      "ttfb": 1.751999,
+      "total": 1.752061,
+      "bytes": 4318,
+      "speed": 2464,
+      "headers": {
+        "content-length": "4318"
+      },
+      "pass": false
+    },
+    {
+      "name": "reader",
+      "run": 2,
+      "status": 200,
+      "dns": 1e-05,
+      "connect": 0.004209,
+      "tls": 0.025208,
+      "ttfb": 1.093522,
+      "total": 1.115486,
+      "bytes": 4318,
+      "speed": 3870,
+      "headers": {
+        "content-length": "4318"
+      },
+      "pass": false
+    },
+    {
+      "name": "pdf_worker",
+      "run": 1,
+      "status": 200,
+      "dns": 1.2e-05,
+      "connect": 0.005133,
+      "tls": 0.243828,
+      "ttfb": 0.25123,
+      "total": 9.792768,
+      "bytes": 1264342,
+      "speed": 129109,
+      "headers": {
+        "content-length": "1264342"
+      },
+      "pass": false
+    },
+    {
+      "name": "pdf_worker",
+      "run": 2,
+      "status": 200,
+      "dns": 1.2e-05,
+      "connect": 0.005422,
+      "tls": 0.016216,
+      "ttfb": 0.026478,
+      "total": 3.165445,
+      "bytes": 1264342,
+      "speed": 399419,
+      "headers": {
+        "content-length": "1264342"
+      },
+      "pass": false
+    }
+  ],
+  "http_after": [
+    {
+      "name": "shelf",
+      "run": 1,
+      "status": 200,
+      "dns": 1e-05,
+      "connect": 0.004458,
+      "tls": 0.012993,
+      "ttfb": 0.10596,
+      "total": 0.106064,
+      "bytes": 1811,
+      "speed": 17074,
+      "headers": {
+        "cache-control": "no-store",
+        "content-encoding": "gzip"
+      },
+      "pass": true
+    },
+    {
+      "name": "shelf",
+      "run": 2,
+      "status": 200,
+      "dns": 9e-06,
+      "connect": 0.004946,
+      "tls": 0.013445,
+      "ttfb": 0.08815,
+      "total": 0.089318,
+      "bytes": 1811,
+      "speed": 20275,
+      "headers": {
+        "cache-control": "no-store",
+        "content-encoding": "gzip"
+      },
+      "pass": true
+    },
+    {
+      "name": "reader",
+      "run": 1,
+      "status": 200,
+      "dns": 1.2e-05,
+      "connect": 0.004984,
+      "tls": 0.014331,
+      "ttfb": 0.091784,
+      "total": 0.093555,
+      "bytes": 1845,
+      "speed": 19721,
+      "headers": {
+        "cache-control": "no-store",
+        "content-encoding": "gzip"
+      },
+      "pass": true
+    },
+    {
+      "name": "reader",
+      "run": 2,
+      "status": 200,
+      "dns": 1.2e-05,
+      "connect": 0.00462,
+      "tls": 0.014333,
+      "ttfb": 0.11047,
+      "total": 0.111181,
+      "bytes": 1845,
+      "speed": 16594,
+      "headers": {
+        "cache-control": "no-store",
+        "content-encoding": "gzip"
+      },
+      "pass": true
+    },
+    {
+      "name": "pdf_worker",
+      "run": 1,
+      "status": 200,
+      "dns": 1.2e-05,
+      "connect": 0.004617,
+      "tls": 0.013573,
+      "ttfb": 0.024763,
+      "total": 0.189868,
+      "bytes": 384285,
+      "speed": 2023958,
+      "headers": {
+        "etag": "W/\"6ed61a629b22800-18e25b15fdb10251-134ad6-140655\"",
+        "last-modified": "Sat, 26 Oct 1985 08:15:00 GMT",
+        "cache-control": "public, max-age=0, must-revalidate",
+        "content-encoding": "gzip"
+      },
+      "pass": true
+    },
+    {
+      "name": "pdf_worker",
+      "run": 2,
+      "status": 200,
+      "dns": 1.1e-05,
+      "connect": 0.00647,
+      "tls": 0.024772,
+      "ttfb": 0.0444,
+      "total": 0.92635,
+      "bytes": 384280,
+      "speed": 414832,
+      "headers": {
+        "etag": "W/\"6ed61a629b22800-18e25b15fdb10251-134ad6-140655\"",
+        "last-modified": "Sat, 26 Oct 1985 08:15:00 GMT",
+        "cache-control": "public, max-age=0, must-revalidate",
+        "content-encoding": "gzip"
+      },
+      "pass": true
+    }
+  ],
+  "pdf_first_page_seconds": {
+    "before": {
+      "cold": 10.064,
+      "warm": 10.028
+    },
+    "after": {
+      "cold": 5.223,
+      "warm": 0.262
+    }
+  },
+  "revalidation": "Compressed worker returns 304 and zero response body bytes",
+  "functional_verification": [
+    "27 Python tests passed",
+    "Live PDF browser suite passed",
+    "Live TLS/upload/SCP visibility/duplicate protection/Range suite passed"
+  ],
+  "measurement_limits": "Observed timings on this client and network; before and after measurements were made on different days. Results vary with PDF size and bandwidth.",
+  "range_experiment": {
+    "deployed": false,
+    "cold_seconds": 4.005,
+    "warm_seconds": 2.516,
+    "reason": "Disabling streaming and auto-fetch improved cold load but regressed repeat viewing versus full-response browser caching."
+  }
+}
