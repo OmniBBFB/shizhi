@@ -1,13 +1,13 @@
-# Run from ~/docker/main alongside the existing docker-compose.yml.
+# Merge this services.shizhi entry into ~/docker/main/docker-compose.yml.
+# Image selection comes from ~/docker/main/.env; uploads use shizhi/.env.
 services:
   shizhi:
-    image: ${SHIZHI_IMAGE:-shizhi:local}
+    image: ${SHIZHI_IMAGE:-shizhi:20261027-perf1}
     container_name: shizhi
     restart: unless-stopped
     volumes:
       - ./shizhi/data:/data
-    environment:
-      SHIZHI_UPLOAD_TOKEN: ${SHIZHI_UPLOAD_TOKEN:-}
+    env_file: ./shizhi/.env
     read_only: true
     tmpfs: ["/tmp:size=16m"]
     cap_drop: [ALL]

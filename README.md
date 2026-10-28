@@ -35,63 +35,68 @@ python3 scripts/export_data.py \
 
 ## 服务器 Docker + Nginx
 
-目标站点：**https://kb.omnibbfb.top**。部署文件匹配服务器现有 `~/docker/main/` 布局和 `nginx_net` 网络：
+站点：**https://kb.omnibbfb.top**。服务器已将拾知并入 `~/docker/main/` 的现有服务栈，统一使用主 Compose 和 Nginx：
 
 ```text
 ~/docker/main/
-├── docker-compose.yml                 # 原有服务配置
-├── compose.shizhi.yaml                # 来自 deploy/compose.server.yaml
+├── docker-compose.yml                  # nginx、shizhi 及其他现有服务
+├── .env                                # SHIZHI_IMAGE 等全局配置（权限 600）
 ├── shizhi/
-│   ├── .env                          # 镜像标签与上传口令（权限 600）
-│   └── data/BV…/ 或 kb-…/            # 独立持久化阅读材料
-└── nginx/conf/kb.omnibbfb.top.conf     # 来自 deploy/ 同名文件
+│   ├── .env                            # 仅上传口令 SHIZHI_UPLOAD_TOKEN（权限 600）
+│   └── data/BV…/ 或 kb-…/              # 独立持久化阅读材料
+└── nginx/conf/omnibbfb.top.conf          # 已包含 kb.omnibbfb.top 的 HTTP/HTTPS server
 ```
 
-容器不发布宿主机端口，由现有 Nginx 通过 Docker 网络代理。服务器已有 `*.omnibbfb.top` 通配符证书，配置复用 `/etc/letsencrypt/live/omnibbfb.top-0002/` 下的证书。`kb.omnibbfb.top` 的 DNS A 记录指向 **123.56.248.107**；目前服务器没有 IPv6 入口，不添加 AAAA 记录。证书续期沿用现有服务器流程。
-
-首次在本机构建镜像并传到服务器（`sss` 是 shell alias，下面写明等价 SSH 参数；`scp` 用大写 `-P` 设置非默认端口）：
+`deploy/compose.server.yaml` 是供合并到主 `docker-compose.yml` 的服务片段；`deploy/kb.omnibbfb.top.conf` 是供合并到现有 `nginx/conf/omnibbfb.top.conf` 的站点片段。服务器已归档原 `compose.shizhi.yaml` 和独立站点文件，日常管理使用同一个入口：
 
 ```sh
-docker build -t shizhi:20261027 .
-docker save shizhi:20261027 | gzip > /tmp/shizhi-image.tar.gz
+cd ~/docker/main
+docker compose config --services
+docker compose ps
+docker compose up -d --no-deps shizhi
+docker compose logs --tail 100 shizhi
+docker compose restart shizhi
+```
+
+根目录 `.env` 负责选择拾知镜像，`shizhi/.env` 通过服务的 `env_file` 提供上传口令。无需额外指定 `-f` 或 `--env-file`。容器以原有 `nginx_net` 网络连接共享 Nginx，材料挂载仍为 `./shizhi/data:/data`，容器仅向网络内暴露 8765。
+
+服务器已有 `*.omnibbfb.top` 通配符证书，复用 `/etc/letsencrypt/live/omnibbfb.top-0002/`。DNS A 记录指向 **123.56.248.107**，证书续期沿用现有流程。
+
+构建镜像并传到服务器（以下标签只是示例，升级时使用新的唯一标签）：
+
+```sh
+docker build -t shizhi:20261027-perf1 .
+docker save shizhi:20261027-perf1 | gzip > /tmp/shizhi-image.tar.gz
 scp -o IdentitiesOnly=yes -i ~/.ssh/ecs_123_56_248_107_ed25519 \
-  /tmp/shizhi-image.tar.gz /tmp/shizhi-data.tar.gz root@123.56.248.107:/tmp/
+  /tmp/shizhi-image.tar.gz root@123.56.248.107:/tmp/
 ```
 
-将 `deploy/compose.server.yaml` 和 Nginx 配置分别安装到上面目录，然后在服务器执行：
+服务器加载新镜像后，修改 `~/docker/main/.env` 中的 `SHIZHI_IMAGE` 再更新服务：
 
 ```sh
+cd ~/docker/main
 docker load -i /tmp/shizhi-image.tar.gz
-cd ~/docker/main
-mkdir -p shizhi/data
-tar -xzf /tmp/shizhi-data.tar.gz -C shizhi/data
-chown -R 10001:10001 shizhi/data
-# 将本机 .env 安全复制到 shizhi/.env，包含 SHIZHI_IMAGE 和 SHIZHI_UPLOAD_TOKEN。
-chmod 600 shizhi/.env
-docker compose --env-file .env --env-file shizhi/.env -f docker-compose.yml -f compose.shizhi.yaml up -d --no-deps shizhi
-docker exec nginx nginx -t
-docker exec nginx nginx -s reload
+# 修改根目录 .env 中的 SHIZHI_IMAGE=新镜像标签。
+docker compose config --quiet
+docker compose up -d --no-deps shizhi
 ```
 
-应用通过 `/healthz` 提供轻量存活检查，Docker 定期检查；它不代表材料内容完整性。`/api/videos` 用于验证目录发现结果。查看状态、日志和升级：
+回滚时将根目录 `.env` 的镜像标签改回旧值，再执行同一条 `up` 命令。`/healthz` 提供轻量存活检查，`/api/videos` 可检查材料目录。调整主 Nginx 配置后执行：
 
 ```sh
-cd ~/docker/main
-docker compose --env-file .env --env-file shizhi/.env -f docker-compose.yml -f compose.shizhi.yaml ps shizhi
-docker logs --tail 100 shizhi
-# 修改 shizhi/.env 的镜像标签，先 load/pull 对应镜像，再运行同一条 up 命令。
-# 回滚：改回旧镜像标签并运行 up；材料目录独立保留。
+docker compose exec nginx nginx -t
+docker compose exec nginx nginx -s reload
 ```
 
-更新材料时，将新导出包解压到 `shizhi/data/`，无需重建镜像。解压会覆盖同名文件，不删除源端已删除的文件；需要完全替换时先备份旧材料，再切换目录并重建容器挂载。
+材料需要初次导入时，将导出包解压到 `shizhi/data/`，执行 `chown -R 10001:10001 shizhi/data`；日常更新通过 SCP 或网页上传，无需重建镜像。解压会覆盖同名文件，不删除源端已删除的文件；先保留备份，避免用旧快照覆盖新的上传。
 
-阅读页面和材料下载按你的选择免登录。写入只通过上传 API，必须提供独立管理口令。口令不进入 URL、Git、镜像或浏览器持久存储。
+阅读和下载免登录；网页写入需要上传口令。口令不进入 URL、Git、镜像或浏览器持久存储。
 
 ## 网页上传与 SCP
 
 上传页：**https://kb.omnibbfb.top/upload**。选择已有资料集，或填写新资料集名称；支持多文件和选填讲次（例如 `P01`）。填写上传口令后提交。单文件上限 **128 MB**，同名文件返回冲突并保留原文件；传输中断时清理临时文件，完整写入后才出现在目录中。ZIP 保留为下载材料，不自动解压。口令未配置时上传返回 503，阅读仍正常。
 
-首次部署已生成随机口令，保存在本机 `~/app/shizhi/.env` 和服务器 `~/docker/main/shizhi/.env`，均为权限 600，且被 Git 忽略。轮换口令：修改服务器 `.env` 中的 `SHIZHI_UPLOAD_TOKEN`，再用上述 Compose 命令重新创建 `shizhi` 服务；同时更新本机口令备份。
+首次部署已生成随机口令，保存在本机 `~/app/shizhi/.env` 和服务器 `~/docker/main/shizhi/.env`，均为权限 600，且被 Git 忽略。轮换口令：修改服务器 `~/docker/main/shizhi/.env` 中的 `SHIZHI_UPLOAD_TOKEN`，再运行 `docker compose up -d --no-deps shizhi` 重新创建服务；同时更新本机口令备份。
 
 网页新建的资料集使用 `kb-<随机标识>/metadata.json`，名称保存在该文件。现有 BV 目录继续支持原有元数据和分 P。SCP 可以直接放入现有资料集：
 
@@ -114,7 +119,7 @@ scp -o IdentitiesOnly=yes -i ~/.ssh/ecs_123_56_248_107_ed25519 \
 
 `.github/workflows/ci.yml` 在 push / PR 时执行 Python 3.10、3.13 测试、JavaScript 语法检查、镜像构建和容器 HTTP 冒烟测试。推送 `v*` 标签或手动运行 workflow 时，用 GitHub 内置的 `GITHUB_TOKEN` 发布到 `ghcr.io/<owner>/<repo>`，提供标签/提交哈希镜像，不需要服务器 SSH 密钥。
 
-GitHub 仓库由你稍后创建。此处已初始化本地 Git，未配置远程或推送。建立远程后：
+GitHub 远程由你自行管理。若尚未配置远程，可按下列方式建立；已有 `origin` 时直接推送即可：
 
 ```sh
 git remote add origin git@github.com:<owner>/<repo>.git
@@ -143,6 +148,6 @@ CHROME_PATH=/path/to/chrome \
 - `web/uploads.py`：挂载目录中的受限上传、完整文件发布与同名保护。
 - `web/view.py`、`web/static/`：页面和完整离线 PDF.js 资源。
 - `scripts/export_data.py`：导出可部署材料。
-- `deploy/`：现有服务器栈的 Compose 补充文件与 Nginx 站点。
+- `deploy/`：供合并进服务器主配置的 Compose/Nginx 片段，以及当前部署与性能记录。
 
 PDF.js 为第三方 Apache-2.0 资源，许可证及来源保留于 `web/static/vendor/pdfjs/`。阅读器实现细节见 [web/README.md](web/README.md)。抽取不修改原始 `wdkns/web/`，已有本地入口继续可用。

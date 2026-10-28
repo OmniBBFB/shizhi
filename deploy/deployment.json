@@ -6,8 +6,8 @@
   "image_id": "sha256:bc5c6c976a0a51c7a8149f60f4d6045353da9a7fb318aa671e7aeafb6116a22b",
   "repository": "/home/csc/app/shizhi",
   "data_directory": "/root/docker/main/shizhi/data",
-  "server_compose": "/root/docker/main/compose.shizhi.yaml",
-  "server_nginx": "/root/docker/main/nginx/conf/kb.omnibbfb.top.conf",
+  "server_compose": "/root/docker/main/docker-compose.yml",
+  "server_nginx": "/root/docker/main/nginx/conf/omnibbfb.top.conf",
   "server_secret_file": "/root/docker/main/shizhi/.env",
   "local_secret_file": "/home/csc/app/shizhi/.env",
   "library": {
@@ -25,7 +25,17 @@
     "source_catalog": "matches public HTTPS API exactly",
     "container_health": "healthy",
     "github_ci": "Performance patch validated locally; remote CI status not checked",
-    "performance": "See deploy/performance.json; public HTML around 0.1s and repeat PDF first page 0.262s"
+    "performance": "See deploy/performance.json; public HTML around 0.1s and repeat PDF first page 0.262s",
+    "unified_management": "Default docker compose includes all five services; shizhi config label references only docker-compose.yml",
+    "other_services": "Other service container IDs preserved; shared nginx reloaded",
+    "standalone_configs": "Archived in integration_backup; duplicate active configuration removed"
   },
-  "remaining_user_actions": []
+  "remaining_user_actions": [],
+  "server_image_env_file": "/root/docker/main/.env",
+  "management_commands": [
+    "cd ~/docker/main && docker compose ps",
+    "cd ~/docker/main && docker compose up -d --no-deps shizhi",
+    "cd ~/docker/main && docker compose logs --tail 100 shizhi"
+  ],
+  "integration_backup": "/root/docker/main/shizhi/integration-20261028T023130Z"
 }
