@@ -146,5 +146,7 @@ jobs:
             ssh -i "$RUNNER_TEMP/shizhi-ssh/key" -o ConnectTimeout=20 -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/shizhi-ssh/known_hosts" "$DEPLOY_HOST" deploy
       - name: Check the public knowledge reader
         run: |
-          curl --fail --silent --show-error --retry 5 --retry-delay 2 https://kb.omnibbfb.top/healthz
-          curl --fail --silent --show-error --retry 5 --retry-delay 2 --output /dev/null https://kb.omnibbfb.top/api/videos
+          set -euo pipefail
+          test "$(curl --fail --silent --show-error --retry 5 --retry-delay 2 https://shizhi.omnibbfb.top/healthz)" = ok
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 --output "$RUNNER_TEMP/shizhi-catalog.json" https://shizhi.omnibbfb.top/api/videos
+          python3 -c 'import json,os; c=json.load(open(os.environ["RUNNER_TEMP"]+"/shizhi-catalog.json")); assert isinstance(c,list) and len(c)>0'

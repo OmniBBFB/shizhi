@@ -2,6 +2,8 @@
 
 `main` 推送后：Python 3.10 / 3.13 业务与部署测试、JavaScript 语法检查、Chrome 嵌入字体回归、Compose 校验、生产镜像的阅读与上传隔离检查，通过后发布 GHCR，再自动更新现有 `shizhi` 服务。PR 只检查；`v*` 标签仍可发布版本镜像，自动部署仅限 main。
 
+线上地址为 https://shizhi.omnibbfb.top ，旧 `kb.omnibbfb.top` 跳转至此。公网验收直接检查新域名的 `ok` 响应与实际目录 JSON，避免把跳转页面当作健康结果。
+
 ## 权限与入口
 
 - 镜像：`ghcr.io/omnibbfb/shizhi:sha-<commit>`；GHCR 摘要记录在发布回执中，服务器按同一镜像的不可变 `sha256:` image ID 运行，不使用可变 latest。
