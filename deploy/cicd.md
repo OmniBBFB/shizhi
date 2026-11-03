@@ -4,18 +4,19 @@
 
 ## 权限与入口
 
-- 镜像：`ghcr.io/omnibbfb/shizhi:sha-<commit>`；部署使用推送后返回的 `@sha256:` 摘要，不使用可变 latest。
+- 镜像：`ghcr.io/omnibbfb/shizhi:sha-<commit>`；GHCR 摘要记录在发布回执中，服务器按同一镜像的不可变 `sha256:` image ID 运行，不使用可变 latest。
 - 仓库变量：`SHIZHI_AUTO_DEPLOY=true`。设为 `false` 可暂停更新，不影响 CI 检查和镜像发布。
 - `production` 环境：secrets 为 `SHIZHI_DEPLOY_SSH_KEY`、`SHIZHI_DEPLOY_KNOWN_HOSTS`，变量为 `SHIZHI_DEPLOY_HOST`。
 - 独立 Ed25519 部署 key，仅允许服务器固定命令 `python3 /root/docker/main/shizhi/deploy/remote-release.py`，带 `restrict`，不允许 shell、PTY 或转发。入口只接受 `deploy` 和本仓库固定摘要镜像。
-- GHCR 拉取使用当前 CI job 的临时 `GITHUB_TOKEN`，只进入临时 Docker 配置，拉取结束后清除，不在服务器保存个人 PAT。
+- GHCR 发布使用 CI job 的临时 `GITHUB_TOKEN`。已测试镜像同时以无标签 Docker archive 保存为当前运行的短期 artifact，经专用 SSH 通道传送；服务器不保存或接收注册表 token。下载 artifact 使用 [GitHub 官方 actions](https://github.com/actions/download-artifact)。
+- 镜像传输先发送有长度上限的 JSON 头，再传 gzip archive；服务器核对大小（最多 512 MiB）、完整文件 SHA-256、唯一且无标签的镜像清单、配置摘要及 Shizhi 来源标签，再导入镜像。不会覆盖其他项目镜像标签。
 
 管理员首次安装入口与专用公钥、配置上述环境后，日常只需提交代码并执行 `git push origin main`。[查看流水线](https://github.com/OmniBBFB/shizhi/actions/workflows/ci.yml)。部署私钥及本机验收记录位于被忽略的 `.local/`。
 
 ## 发布顺序
 
 1. 获取项目发布锁及共享栈的发布锁，和游戏站、BBNS 串行发布；仅更新拾知。
-2. 拉取已通过 CI 检查的固定摘要镜像，通过容器内 procfs 检测打开的 `.upload-` 临时文件，等待现有上传空闲，最长 10 分钟。超时保留原服务。
+2. 接收并验证 CI 中的同一镜像，再以不可变 image ID 导入。使用 SSH 保活，避免空闲连接中断；不依赖服务器的 GHCR 层下载路径。通过容器内 procfs 检测打开的 `.upload-` 临时文件，等待现有上传空闲，最长 10 分钟。超时保留原服务。
 3. 停止拾知，保存主 `.env`、Compose、上传口令配置和完整材料目录，备份位于 `shizhi/backups/cicd-<timestamp>`。备份目录权限 700，保留材料所有者与权限。
 4. 用新镜像在无网络、只读的材料快照上构建目录，验证实际资料可以读取；不执行生产上传。
 5. 原子替换主 `.env` 的 **SHIZHI_IMAGE 一项**。核对其他服务配置完全相同，仅执行 `docker compose up -d --no-deps shizhi`，再检查容器和公开 HTTPS。Nginx、上传口令、材料挂载位置均沿用现有配置。

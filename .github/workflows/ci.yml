@@ -62,6 +62,9 @@ jobs:
       packages: write
     outputs:
       image: ${{ steps.publish.outputs.image }}
+      image_id: ${{ steps.publish.outputs.image_id }}
+      archive_sha256: ${{ steps.publish.outputs.archive_sha256 }}
+      archive_bytes: ${{ steps.publish.outputs.archive_bytes }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -89,6 +92,23 @@ jobs:
           test -n "$digest"
           printf 'image=%s\n' "$digest" >> "$GITHUB_OUTPUT"
           printf 'Published verified image `%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+          image_id=$(docker image inspect shizhi:ci --format '{{.Id}}')
+          docker image save "$image_id" | gzip -1 > "$RUNNER_TEMP/shizhi-image.tar.gz"
+          # Docker's containerd store may report an index ID. The server's
+          # classic image store uses the actual image config SHA-256.
+          image_id=$(python3 -c 'import tarfile,json,hashlib,os; t=tarfile.open(os.environ["RUNNER_TEMP"]+"/shizhi-image.tar.gz"); m=json.load(t.extractfile("manifest.json")); assert len(m)==1 and not m[0].get("RepoTags"); print("sha256:"+hashlib.sha256(t.extractfile(m[0]["Config"]).read()).hexdigest())')
+          printf 'image_id=%s\n' "$image_id" >> "$GITHUB_OUTPUT"
+          printf 'archive_sha256=%s\n' "$(sha256sum "$RUNNER_TEMP/shizhi-image.tar.gz" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+          printf 'archive_bytes=%s\n' "$(stat -c %s "$RUNNER_TEMP/shizhi-image.tar.gz")" >> "$GITHUB_OUTPUT"
+      - name: Keep the exact tested image for deployment
+        if: steps.publish.outputs.image != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: shizhi-image
+          path: ${{ runner.temp }}/shizhi-image.tar.gz
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
   deploy:
     needs: image
     if: github.ref == 'refs/heads/main' && needs.image.outputs.image != '' && vars.SHIZHI_AUTO_DEPLOY == 'true'
@@ -96,15 +116,22 @@ jobs:
     timeout-minutes: 20
     environment: production
     permissions:
-      packages: read
+      contents: read
     steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: shizhi-image
+          path: ${{ runner.temp }}/shizhi-image
       - name: Deploy only the existing Shizhi service
         env:
           DEPLOY_SSH_KEY: ${{ secrets.SHIZHI_DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.SHIZHI_DEPLOY_KNOWN_HOSTS }}
           DEPLOY_HOST: ${{ vars.SHIZHI_DEPLOY_HOST }}
           IMAGE: ${{ needs.image.outputs.image }}
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_ID: ${{ needs.image.outputs.image_id }}
+          ARCHIVE_SHA256: ${{ needs.image.outputs.archive_sha256 }}
+          ARCHIVE_BYTES: ${{ needs.image.outputs.archive_bytes }}
+          IMAGE_ARCHIVE: ${{ runner.temp }}/shizhi-image/shizhi-image.tar.gz
         run: |
           set -euo pipefail
           test -n "$DEPLOY_SSH_KEY"
@@ -115,7 +142,7 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/shizhi-ssh/key"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/shizhi-ssh/known_hosts"
           chmod 600 "$RUNNER_TEMP/shizhi-ssh/key"
-          python3 -c 'import json,os; print(json.dumps({"image":os.environ["IMAGE"],"actor":os.environ["GITHUB_ACTOR"],"registryToken":os.environ["REGISTRY_TOKEN"]}))' |
+          python3 -c 'import json,os,sys,shutil; header={"image":os.environ["IMAGE"],"imageId":os.environ["IMAGE_ID"],"archiveSha256":os.environ["ARCHIVE_SHA256"],"archiveBytes":int(os.environ["ARCHIVE_BYTES"])}; sys.stdout.buffer.write((json.dumps(header)+"\n").encode()); sys.stdout.buffer.flush(); shutil.copyfileobj(open(os.environ["IMAGE_ARCHIVE"],"rb"),sys.stdout.buffer)' |
             ssh -i "$RUNNER_TEMP/shizhi-ssh/key" -o ConnectTimeout=20 -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/shizhi-ssh/known_hosts" "$DEPLOY_HOST" deploy
       - name: Check the public knowledge reader
         run: |

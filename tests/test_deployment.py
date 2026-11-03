@@ -1,6 +1,10 @@
 import importlib.util
+import hashlib
+import io
+import json
 from pathlib import Path
 import tempfile
+import tarfile
 import unittest
 
 spec = importlib.util.spec_from_file_location('release', Path(__file__).resolve().parents[1] / 'deploy/remote-release.py')
@@ -9,6 +13,37 @@ spec.loader.exec_module(release)
 
 
 class DeploymentTests(unittest.TestCase):
+    def archive_fixture(self, tags=None):
+        config = json.dumps({'config': {'Labels': {'org.opencontainers.image.source': 'https://github.com/OmniBBFB/shizhi'}}}).encode()
+        identity = hashlib.sha256(config).hexdigest()
+        data = io.BytesIO()
+        with tarfile.open(fileobj=data, mode='w:gz') as archive:
+            for name, blob in [('manifest.json', json.dumps([{'Config': identity + '.json', 'RepoTags': tags, 'Layers': []}]).encode()), (identity + '.json', config)]:
+                info = tarfile.TarInfo(name)
+                info.size = len(blob)
+                archive.addfile(info, io.BytesIO(blob))
+        blob = data.getvalue()
+        return blob, {'archiveBytes': len(blob), 'archiveSha256': hashlib.sha256(blob).hexdigest(), 'imageId': 'sha256:' + identity}
+
+    def test_receives_exact_verified_untagged_image(self):
+        blob, payload = self.archive_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'image.tar.gz'
+            self.assertEqual(release.receive_archive(io.BytesIO(blob), path, payload), payload['imageId'])
+            self.assertEqual(path.read_bytes(), blob)
+
+    def test_rejects_corrupted_truncated_or_wrong_identity_image(self):
+        blob, payload = self.archive_fixture()
+        cases = [(blob[:-1], payload), (blob, {**payload, 'archiveSha256': '0' * 64}), (blob, {**payload, 'imageId': 'sha256:' + '0' * 64}), (blob, {**payload, 'archiveBytes': 513 * 1024 * 1024})]
+        for source, metadata in cases:
+            with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
+                release.receive_archive(io.BytesIO(source), Path(directory) / 'image.tar.gz', metadata)
+
+    def test_rejects_archive_that_could_overwrite_another_image_tag(self):
+        blob, payload = self.archive_fixture(['other-project:latest'])
+        with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
+            release.receive_archive(io.BytesIO(blob), Path(directory) / 'image.tar.gz', payload)
+
     def test_only_shizhi_digest_is_allowed(self):
         image = release.IMAGE + '@sha256:' + 'a' * 64
         self.assertTrue(release.valid_image(image))
