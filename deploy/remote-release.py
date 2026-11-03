@@ -53,11 +53,11 @@ def copy_tree_owned(source, destination):
         os.chown(destination / path.relative_to(source), metadata.st_uid, metadata.st_gid, follow_symlinks=False)
 
 
-def run(command, *, cwd=None, input=None, timeout=180):
-    result = subprocess.run(command, cwd=cwd, input=input, capture_output=True, text=True, timeout=timeout)
+def run(command, *, cwd=None, input=None, timeout=180, capture=True):
+    result = subprocess.run(command, cwd=cwd, input=input, capture_output=capture, text=True, timeout=timeout)
     if result.returncode:
         raise RuntimeError('Command failed: ' + ' '.join(command[:3]))
-    return result.stdout.strip()
+    return (result.stdout or '').strip()
 
 
 def wait_for_uploads(container, *, timeout=600):
@@ -103,6 +103,7 @@ def deploy(payload):
     directory = root / 'shizhi/deploy'
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     # BBNS and board-games use the same first lock for this shared Compose stack.
+    print('Waiting for the shared deployment lock', flush=True)
     with (root / 'acquire/deploy/release.lock').open('a') as shared, (directory / 'release.lock').open('a') as own:
         fcntl.flock(shared, fcntl.LOCK_EX)
         fcntl.flock(own, fcntl.LOCK_EX)
@@ -111,7 +112,8 @@ def deploy(payload):
             raise ValueError('Invalid registry identity')
         with tempfile.TemporaryDirectory(prefix='shizhi-registry-') as config:
             run(['docker', '--config', config, 'login', 'ghcr.io', '--username', actor, '--password-stdin'], input=token)
-            run(['docker', '--config', config, 'pull', image], timeout=600)
+            print('Pulling the verified Shizhi image; the existing service is still running', flush=True)
+            run(['docker', '--config', config, 'pull', image], timeout=600, capture=False)
         del token
         base = ['docker', 'compose', '-f', str(root / 'docker-compose.yml')]
         resolved = json.loads(run(base + ['config', '--format', 'json'], cwd=root))
@@ -122,6 +124,7 @@ def deploy(payload):
         if not current:
             raise ValueError('Expected the existing Shizhi service')
         wait_for_uploads(current)
+        print('Image available; backing up materials before switching Shizhi', flush=True)
         backup = root / 'shizhi/backups' / ('cicd-' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
         backup.mkdir(parents=True, mode=0o700)
         shutil.copy2(env_file, backup / 'main.env')
@@ -147,6 +150,7 @@ def deploy(payload):
             run(base + ['up', '-d', '--no-deps', 'shizhi'], cwd=root)
             container = run(base + ['ps', '-q', 'shizhi'], cwd=root)
             health(container)
+            print('Shizhi is healthy', flush=True)
             result = {'ok': True, 'image': image, 'previousImage': previous, 'backup': str(backup), 'container': container, **catalog}
             (directory / 'release.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))

@@ -116,7 +116,7 @@ jobs:
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/shizhi-ssh/known_hosts"
           chmod 600 "$RUNNER_TEMP/shizhi-ssh/key"
           python3 -c 'import json,os; print(json.dumps({"image":os.environ["IMAGE"],"actor":os.environ["GITHUB_ACTOR"],"registryToken":os.environ["REGISTRY_TOKEN"]}))' |
-            ssh -i "$RUNNER_TEMP/shizhi-ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/shizhi-ssh/known_hosts" "$DEPLOY_HOST" deploy
+            ssh -i "$RUNNER_TEMP/shizhi-ssh/key" -o ConnectTimeout=20 -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/shizhi-ssh/known_hosts" "$DEPLOY_HOST" deploy
       - name: Check the public knowledge reader
         run: |
           curl --fail --silent --show-error --retry 5 --retry-delay 2 https://kb.omnibbfb.top/healthz
