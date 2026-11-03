@@ -4,5 +4,7 @@
   "source": "https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-6.4.299.tgz",
   "sha256": "86269b40170eb41740ea05ad2102d71d33de4f122b34eb2f478be0ea7779c415",
   "license": "Apache-2.0",
-  "files": "minified display/worker builds; cmaps; standard_fonts; wasm"
+  "build": "legacy",
+  "files": "legacy/build/pdf.min.mjs; legacy/build/pdf.worker.min.mjs; cmaps; standard_fonts; wasm",
+  "reason": "The modern worker requires Math.sumPrecise; browsers without it silently substitute embedded fonts. The official legacy build includes the required compatibility support."
 }

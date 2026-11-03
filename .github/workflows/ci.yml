@@ -28,8 +28,28 @@ jobs:
           node --check web/static/upload.js
       - run: python -m unittest discover -s tests -v
 
+  pdf-fonts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test browser
+        run: npm install --prefix "$RUNNER_TEMP/shizhi-browser" puppeteer@25.16.0
+      - name: Check embedded fonts without native Math.sumPrecise
+        env:
+          PDF_TEST_NO_SANDBOX: '1'
+        run: |
+          export PUPPETEER_MODULE="$RUNNER_TEMP/shizhi-browser/node_modules/puppeteer"
+          export CHROME_PATH="$(node -e 'console.log(require(process.env.PUPPETEER_MODULE).executablePath())')"
+          node web/tests/pdf-reader-fonts.browser.mjs
+
   image:
-    needs: test
+    needs: [test, pdf-fonts]
     runs-on: ubuntu-latest
     permissions:
       contents: read

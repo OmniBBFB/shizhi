@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-29",
+  "target": "https://kb.omnibbfb.top/?video=BV1Guxu6EERa&pdfPage=3&pdfZoom=fit",
+  "browser": "Google Chrome 145.0.7632.75",
+  "pdfjs_version": "6.4.299",
+  "cause": "The modern PDF.js worker calls Math.sumPrecise while building OpenType font tables. Chrome 145 lacks this API, so the embedded FandolSong and other fonts fail conversion and PDF.js renders substitute fonts.",
+  "fix": "Use the unmodified legacy/build/pdf.min.mjs and legacy/build/pdf.worker.min.mjs from the same official package, preserving resource URLs and supporting CMaps, standard fonts and WASM.",
+  "asset_sha256": {
+    "pdf.min.mjs": "bccc24ea711db8e44503629519904a5292d73b9daaa214bbe7cdcc282b0f4259",
+    "pdf.worker.min.mjs": "145d2dd3ab0c86151011dba95acfa2d5336e2accd59388ea43dbee0efddaaec6"
+  },
+  "regression": {
+    "command": "node web/tests/pdf-reader-fonts.browser.mjs",
+    "fixture": "web/tests/fixtures/embedded-serif.pdf",
+    "method": "Run the real reading page and bundled worker, forcibly removing Math.sumPrecise before worker initialization. Assert no font warnings and successful loading of embedded PDF fonts.",
+    "before": "Failed with TypeError: Math.sumPrecise is not a function",
+    "after": "Passed with embedded serif font loaded",
+    "ci": "Required pdf-fonts job before image build; remote GitHub execution not yet verified"
+  },
+  "verification": {
+    "python_tests": 27,
+    "browser_reader": "Passed against the repair image: Chinese raster/text, navigation, zoom, URL restore, mobile layout, error fallback and local-only resources",
+    "original_page_local": "Passed: four embedded fonts loaded with Math.sumPrecise absent in worker",
+    "original_page_public": "Passed: four embedded fonts loaded, original serif appearance restored and no font warnings",
+    "public_regression": "Passed with Math.sumPrecise forcibly removed from worker",
+    "container": "healthy",
+    "mounts": "Unchanged",
+    "other_containers": "IDs unchanged",
+    "catalog": { "collections": 11, "reading_units": 45, "pdfs": 46 },
+    "evidence": ".artifacts/pdf-fonts/ contains before/after logs and screenshots in the local workspace"
+  },
+  "image": "shizhi:20261029-pdf-fonts",
+  "image_id": "sha256:c00401f69867acc522ebed7ac0762d66c8791db718d3738a5b9e97c77f0842b3",
+  "previous_image": "shizhi:20261027-perf1",
+  "rollback_backup": "/root/.local/state/shizhi/pdf-fonts-20261029T025210Z",
+  "rollback": "Restore main.env from the protected backup to /root/docker/main/.env, run docker compose up -d --no-deps shizhi in /root/docker/main, then docker exec nginx nginx -s reload."
+}

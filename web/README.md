@@ -33,7 +33,7 @@ python3 -m unittest discover -s web/tests -v
 
 `static/pdf-reader.mjs` 负责阅读器交互和单页渲染队列，页面重绘完成后才允许下一次操作，按设备像素比绘制并限制 canvas 像素总量。翻页与缩放时保留当前可见画面，在未挂载的替换节点中完成 canvas 与文字层渲染后一次性替换，避免清空画面闪烁；同页缩放尽量保留阅读位置，滚动条预留固定空间。文字层使用 PDF.js TextLayer，支持选中复制；当前为基础阅读器，未实现全文搜索、批注编辑、书签面板及 PDF 内部链接交互。
 
-PDF.js display、worker、中文 CMap、标准字体和 WASM 资源固定在 `static/vendor/pdfjs/`，无需 npm 安装或 CDN。版本、来源和压缩包 SHA-256 见该目录的 `PROVENANCE.json`；保留上游 Apache-2.0 LICENSE 及各资源目录中的许可文件。更新时须同时替换同一版本的主模块、worker 和辅助资源。
+PDF.js display、worker、中文 CMap、标准字体和 WASM 资源固定在 `static/vendor/pdfjs/`，无需 npm 安装或 CDN。主模块和 worker 使用官方同版本 `legacy/build/` 兼容构建，包含新 JavaScript API 的兼容实现；标准构建在缺少 `Math.sumPrecise` 的浏览器中会导致嵌入字体转换失败，并悄悄改用替代字体。版本、来源、构建类型和压缩包 SHA-256 见该目录的 `PROVENANCE.json`；保留上游 Apache-2.0 LICENSE 及各资源目录中的许可文件。更新时须同时替换同一版本的兼容构建主模块、worker 和辅助资源。
 
 页面 CSP 允许同源 worker、WASM、动态字体和 PDF.js 生成的内联样式，不允许内联脚本；第三方运行时资源通过专用白名单提供。所有材料来自独立挂载的资料集目录。
 
@@ -44,6 +44,14 @@ CHROME_PATH=/path/to/chrome node web/tests/pdf-reader.browser.mjs
 ```
 
 该检查使用仓库现有中文 PDF 验证实际渲染、翻页、跳页、缩放、URL 恢复、手机布局和失败回退；`TEST_BASE_URL` 可指定服务地址，`PUPPETEER_MODULE` 可指定现有 Puppeteer 模块路径。
+
+字体回归检查可独立运行，不需要已有材料或手工启动服务：
+
+```sh
+CHROME_PATH=/path/to/chrome node web/tests/pdf-reader-fonts.browser.mjs
+```
+
+该检查自动启动临时服务，使用约 5 KB 的嵌入 Type 1C 字体 PDF，并主动移除 worker 的 `Math.sumPrecise`，确认嵌入字体成功加载且没有字体替换警告。CI 在构建镜像前执行同一检查。设置 `TEST_BASE_URL` 时可检查运行中的服务，默认复测 `BV1Guxu6EERa` 第 3 页，也可通过 `TEST_PDF_ROUTE` 指定其他页面。
 
 闪烁回归检查：在同样的 Puppeteer 与 Chromium 环境中运行 `node web/tests/pdf-reader-stability.browser.mjs`。它在真实 PDF 翻页、缩放和窗口尺寸变化期间逐帧检查页面可见性及 canvas 像素，并检查无操作时是否出现重复重绘。
 

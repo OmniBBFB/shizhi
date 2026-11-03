@@ -65,8 +65,8 @@ docker compose restart shizhi
 构建镜像并传到服务器（以下标签只是示例，升级时使用新的唯一标签）：
 
 ```sh
-docker build -t shizhi:20261027-perf1 .
-docker save shizhi:20261027-perf1 | gzip > /tmp/shizhi-image.tar.gz
+docker build -t shizhi:20261029-pdf-fonts .
+docker save shizhi:20261029-pdf-fonts | gzip > /tmp/shizhi-image.tar.gz
 scp -o IdentitiesOnly=yes -i ~/.ssh/ecs_123_56_248_107_ed25519 \
   /tmp/shizhi-image.tar.gz root@123.56.248.107:/tmp/
 ```
@@ -117,7 +117,7 @@ scp -o IdentitiesOnly=yes -i ~/.ssh/ecs_123_56_248_107_ed25519 \
 
 ## CI 与镜像发布
 
-`.github/workflows/ci.yml` 在 push / PR 时执行 Python 3.10、3.13 测试、JavaScript 语法检查、镜像构建和容器 HTTP 冒烟测试。推送 `v*` 标签或手动运行 workflow 时，用 GitHub 内置的 `GITHUB_TOKEN` 发布到 `ghcr.io/<owner>/<repo>`，提供标签/提交哈希镜像，不需要服务器 SSH 密钥。
+`.github/workflows/ci.yml` 在 push / PR 时执行 Python 3.10、3.13 测试、JavaScript 语法检查、Chrome 嵌入字体回归检查、镜像构建和容器 HTTP 冒烟测试。字体检查主动模拟浏览器缺少新 JavaScript API 的情况，避免 PDF.js 升级后出现字体替换。推送 `v*` 标签或手动运行 workflow 时，用 GitHub 内置的 `GITHUB_TOKEN` 发布到 `ghcr.io/<owner>/<repo>`，提供标签/提交哈希镜像，不需要服务器 SSH 密钥。
 
 GitHub 远程由你自行管理。若尚未配置远程，可按下列方式建立；已有 `origin` 时直接推送即可：
 

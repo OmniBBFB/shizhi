@@ -2,8 +2,8 @@
   "name": "拾知",
   "url": "https://kb.omnibbfb.top",
   "upload_url": "https://kb.omnibbfb.top/upload",
-  "image": "shizhi:20261027-perf1",
-  "image_id": "sha256:bc5c6c976a0a51c7a8149f60f4d6045353da9a7fb318aa671e7aeafb6116a22b",
+  "image": "shizhi:20261029-pdf-fonts",
+  "image_id": "sha256:c00401f69867acc522ebed7ac0762d66c8791db718d3738a5b9e97c77f0842b3",
   "repository": "/home/csc/app/shizhi",
   "data_directory": "/root/docker/main/shizhi/data",
   "server_compose": "/root/docker/main/docker-compose.yml",
@@ -11,23 +11,24 @@
   "server_secret_file": "/root/docker/main/shizhi/.env",
   "local_secret_file": "/home/csc/app/shizhi/.env",
   "library": {
-    "collections": 10,
-    "reading_units": 44,
-    "pdfs": 45
+    "collections": 11,
+    "reading_units": 45,
+    "pdfs": 46
   },
   "verification": {
     "unittests": 27,
     "browser_upload": "passed",
     "browser_pdf": "passed",
+    "browser_pdf_fonts": "Passed locally and on public HTTPS with Math.sumPrecise removed from the worker; original page 3 loads all four embedded fonts. See deploy/pdf-fonts.json",
     "hallmark": "0 FAIL, 0 WARN, 3 existing Ink palette waivers; finish review issue resolved",
     "server_https": "passed without ignoring certificate validation",
     "server_upload": "passed; temporary test collection cleaned",
     "source_catalog": "matches public HTTPS API exactly",
     "container_health": "healthy",
-    "github_ci": "Performance patch validated locally; remote CI status not checked",
+    "github_ci": "Font regression job added; Python and Chrome checks passed locally; remote GitHub CI not run",
     "performance": "See deploy/performance.json; public HTML around 0.1s and repeat PDF first page 0.262s",
     "unified_management": "Default docker compose includes all five services; shizhi config label references only docker-compose.yml",
-    "other_services": "Other service container IDs preserved; shared nginx reloaded",
+    "other_services": "Other service container IDs and shizhi mounts preserved during font fix deployment; shared nginx reloaded",
     "standalone_configs": "Archived in integration_backup; duplicate active configuration removed"
   },
   "remaining_user_actions": [],
@@ -37,5 +38,6 @@
     "cd ~/docker/main && docker compose up -d --no-deps shizhi",
     "cd ~/docker/main && docker compose logs --tail 100 shizhi"
   ],
-  "integration_backup": "/root/docker/main/shizhi/integration-20261028T023130Z"
+  "integration_backup": "/root/docker/main/shizhi/integration-20261028T023130Z",
+  "font_fix_backup": "/root/.local/state/shizhi/pdf-fonts-20261029T025210Z"
 }

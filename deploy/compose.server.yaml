@@ -2,7 +2,7 @@
 # Image selection comes from ~/docker/main/.env; uploads use shizhi/.env.
 services:
   shizhi:
-    image: ${SHIZHI_IMAGE:-shizhi:20261027-perf1}
+    image: ${SHIZHI_IMAGE:-shizhi:20261029-pdf-fonts}
     container_name: shizhi
     restart: unless-stopped
     volumes:
