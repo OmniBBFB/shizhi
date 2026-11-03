@@ -1,4 +1,5 @@
 FROM python:3.13-slim@sha256:b3575dcf816cdacc5292df77a6e3e59b8941631078373a045efa2ac1e9c5c3b2
+LABEL org.opencontainers.image.source="https://github.com/OmniBBFB/shizhi"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 SHIZHI_DATA_DIR=/data
 WORKDIR /app
 COPY web /app/web

@@ -1,24 +1,27 @@
-name: CI
+name: Shizhi CI and release
 on:
   push:
   pull_request:
   workflow_dispatch:
-
 permissions:
   contents: read
-
+concurrency:
+  group: shizhi-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python: ['3.10', '3.13']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - run: python -m unittest discover -s web/tests -v
@@ -27,71 +30,94 @@ jobs:
           node --check web/static/pdf-reader.mjs
           node --check web/static/upload.js
       - run: python -m unittest discover -s tests -v
-
+      - name: Validate Compose with an isolated empty env file
+        run: python tools/check-compose.py
   pdf-fonts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - name: Install test browser
-        run: npm install --prefix "$RUNNER_TEMP/shizhi-browser" puppeteer@25.16.0
+      - name: Install browser driver
+        run: npm install --prefix "$RUNNER_TEMP/shizhi-browser" --ignore-scripts puppeteer-core@25.16.0
       - name: Check embedded fonts without native Math.sumPrecise
         env:
           PDF_TEST_NO_SANDBOX: '1'
+          CHROME_PATH: /usr/bin/google-chrome
         run: |
-          export PUPPETEER_MODULE="$RUNNER_TEMP/shizhi-browser/node_modules/puppeteer"
-          export CHROME_PATH="$(node -e 'console.log(require(process.env.PUPPETEER_MODULE).executablePath())')"
+          export PUPPETEER_MODULE="$RUNNER_TEMP/shizhi-browser/node_modules/puppeteer-core"
           node web/tests/pdf-reader-fonts.browser.mjs
-
   image:
     needs: [test, pdf-fonts]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
         with:
-          context: .
-          load: true
-          tags: shizhi:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Smoke test the image with a read-only filesystem
+          persist-credentials: false
+      - name: Build production image
+        run: docker build --tag shizhi:ci .
+      - name: Test image reading and protected upload on temporary data
+        run: python3 tools/check-image.py shizhi:ci
+      - name: Publish the verified image
+        id: publish
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker run -d --name shizhi-ci --read-only --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1:8765:8765 shizhi:ci
-          trap 'docker logs shizhi-ci; docker rm -f shizhi-ci' EXIT
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:8765/healthz; then break; fi
-            sleep 1
-          done
-          curl --fail http://127.0.0.1:8765/healthz
-          curl --fail http://127.0.0.1:8765/api/videos | python -c 'import json,sys; assert json.load(sys.stdin) == []'
-      - uses: docker/login-action@v3
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=sha
-            type=ref,event=tag
-      - uses: docker/build-push-action@v6
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+          set -euo pipefail
+          image="ghcr.io/omnibbfb/shizhi:sha-${GITHUB_SHA}"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker tag shizhi:ci "$image"
+          docker push "$image"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            docker tag shizhi:ci "ghcr.io/omnibbfb/shizhi:${GITHUB_REF_NAME}"
+            docker push "ghcr.io/omnibbfb/shizhi:${GITHUB_REF_NAME}"
+          fi
+          digest=$(docker image inspect "$image" --format '{{range .RepoDigests}}{{println .}}{{end}}' | awk '/^ghcr.io\/omnibbfb\/shizhi@sha256:/{print; exit}')
+          test -n "$digest"
+          printf 'image=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          printf 'Published verified image `%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+  deploy:
+    needs: image
+    if: github.ref == 'refs/heads/main' && needs.image.outputs.image != '' && vars.SHIZHI_AUTO_DEPLOY == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      packages: read
+    steps:
+      - name: Deploy only the existing Shizhi service
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.SHIZHI_DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.SHIZHI_DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.SHIZHI_DEPLOY_HOST }}
+          IMAGE: ${{ needs.image.outputs.image }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          test -n "$DEPLOY_HOST"
+          install -d -m 700 "$RUNNER_TEMP/shizhi-ssh"
+          trap 'rm -f "$RUNNER_TEMP/shizhi-ssh/key"' EXIT
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/shizhi-ssh/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/shizhi-ssh/known_hosts"
+          chmod 600 "$RUNNER_TEMP/shizhi-ssh/key"
+          python3 -c 'import json,os; print(json.dumps({"image":os.environ["IMAGE"],"actor":os.environ["GITHUB_ACTOR"],"registryToken":os.environ["REGISTRY_TOKEN"]}))' |
+            ssh -i "$RUNNER_TEMP/shizhi-ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/shizhi-ssh/known_hosts" "$DEPLOY_HOST" deploy
+      - name: Check the public knowledge reader
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 https://kb.omnibbfb.top/healthz
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 --output /dev/null https://kb.omnibbfb.top/api/videos

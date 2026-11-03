@@ -115,20 +115,17 @@ scp -o IdentitiesOnly=yes -i ~/.ssh/ecs_123_56_248_107_ed25519 \
 
 静态资源和阅读材料提供 ETag、Last-Modified 与重新验证缓存，未变更时返回 304，无需重传文件；变更后会获取新内容。HTML/API 不缓存。服务器 Nginx 对 JavaScript、CSS、JSON 等开启 gzip；PDF 保持原始字节和 Range 读取，避免影响分段加载。
 
-## CI 与镜像发布
+## CI/CD 与镜像发布
 
-`.github/workflows/ci.yml` 在 push / PR 时执行 Python 3.10、3.13 测试、JavaScript 语法检查、Chrome 嵌入字体回归检查、镜像构建和容器 HTTP 冒烟测试。字体检查主动模拟浏览器缺少新 JavaScript API 的情况，避免 PDF.js 升级后出现字体替换。推送 `v*` 标签或手动运行 workflow 时，用 GitHub 内置的 `GITHUB_TOKEN` 发布到 `ghcr.io/<owner>/<repo>`，提供标签/提交哈希镜像，不需要服务器 SSH 密钥。
+`.github/workflows/ci.yml` 在 push / PR 时执行 Python 3.10、3.13 业务与部署测试、JavaScript 语法检查、Chrome 嵌入字体回归、Compose 校验、镜像构建和临时材料上的上传/阅读隔离检查。字体检查主动模拟浏览器缺少新 JavaScript API 的情况，避免字体修复回退。
 
-GitHub 远程由你自行管理。若尚未配置远程，可按下列方式建立；已有 `origin` 时直接推送即可：
+主分支检查通过后，用 GitHub 内置 `GITHUB_TOKEN` 将这个已验证镜像发布至 `ghcr.io/omnibbfb/shizhi`，按固定摘要自动更新服务器；PR 不发布，`v*` 标签仍可发布版本镜像。设置一次生产部署授权后，日常只需：
 
 ```sh
-git remote add origin git@github.com:<owner>/<repo>.git
-git push -u origin main
-git tag v0.1.0
-git push origin v0.1.0
+git push origin main
 ```
 
-新 GHCR 包默认可见性由 GitHub 设置决定。服务器使用私有镜像时先 `docker login ghcr.io`，或使用上述离线传镜像方式。CI 不会自动部署服务器。
+拾知使用独立受限 SSH key，仅更新 `shizhi` 服务，保留材料和上传口令。部署前等待上传空闲并备份，失败恢复镜像但不覆盖新材料。详见 [自动部署说明](deploy/cicd.md)；[查看流水线](https://github.com/OmniBBFB/shizhi/actions/workflows/ci.yml)。
 
 ## 检查与结构
 
